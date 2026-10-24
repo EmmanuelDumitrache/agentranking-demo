@@ -32,6 +32,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useCreatedAgentsStore } from "@/stores/created-agents-store";
+import { verifyTransaction } from "@/lib/verify-transaction";
 
 type PromotionTier = "hot" | "featured";
 type PaymentToken = "ETH" | "USDC" | "SOL";
@@ -166,20 +167,13 @@ function PromoteContent() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/promotions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          txHash: txHash.trim(),
-          paymentToken: selectedToken,
-          tier: selectedTier,
-          agentId: agentId.trim(),
-        }),
-      });
+      const verification = await verifyTransaction(
+        txHash.trim(),
+        selectedToken,
+        selectedTier
+      );
 
-      const data = await res.json();
-
-      if (res.ok) {
+      if (verification.valid) {
         const numericId = Number.parseInt(agentId.replace(/\D/g, ""), 10) || 1;
         promoteAgentInStore(numericId, selectedTier);
         setPromotedAgentNumber(numericId);
@@ -191,13 +185,15 @@ function PromoteContent() {
       } else {
         setResult({
           success: false,
-          message: data.error || "Verification failed. Please check your transaction.",
+          message:
+            verification.error ||
+            "Verification failed. Please check your transaction.",
         });
       }
     } catch {
       setResult({
         success: false,
-        message: "Network error. Please try again.",
+        message: "Verification error. Please try again.",
       });
     } finally {
       setSubmitting(false);

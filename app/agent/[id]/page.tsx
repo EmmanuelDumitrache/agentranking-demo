@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import { getAgentData } from "@/lib/agent-data";
 import { AgentJsonLd, AgentPageContent } from "@/components/agent-page";
 
-export const revalidate = 3600;
-export const dynamicParams = true;
+export async function generateStaticParams() {
+  const ids = Array.from({ length: 80 }, (_, i) => ({ id: String(i + 1) }));
+  ids.push({ id: "22688" });
+  return ids;
+}
 
 export async function generateMetadata({
   params,
@@ -25,7 +28,8 @@ export async function generateMetadata({
     : `ERC-8004 AI Agent ${name} on ${agent.chainName}`;
   const image = agent.metadata.image;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://8004scanner.com";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://agentrankingdemo.netlify.app";
 
   return {
     title: `${name} | 8004scanner - ERC-8004 Agent`,
@@ -47,10 +51,6 @@ export async function generateMetadata({
       canonical: `${baseUrl}/agent/${agent.agentId}`,
     },
   };
-}
-
-export async function generateStaticParams() {
-  return [];
 }
 
 export default async function AgentDetailPage({

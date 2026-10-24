@@ -1,6 +1,9 @@
 import type { MetadataRoute } from "next";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://8004scanner.com";
+export const dynamic = "force-static";
+
+const baseUrl =
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://agentrankingdemo.netlify.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

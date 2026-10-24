@@ -65,9 +65,9 @@ export function buildPublicFooterColumns(): PublicFooterColumn[] {
 
 export const publicPageUrls = {
   publicSite: "/",
-  app: "",
+  app: "/dashboard",
   stake: "/stake",
-  dashboard: "/create",
+  dashboard: "/dashboard",
   docs: "/docs",
   news: "/docs",
   verify: "/verified",

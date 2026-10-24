@@ -331,9 +331,9 @@ function StakeSection({ summary }: { readonly summary: PublicStakeSummary | null
                 style={{ left: 32, top: 132, width: 156, height: 110, borderRadius: 24 }}
               />
             </div>
-            <a href={STAKE_PAGE_HREF} className="lm-kicker" style={{ position: "relative", opacity: lockLocked ? 0.85 : 0.4 }}>
+            <Link href={STAKE_PAGE_HREF} className="lm-kicker" style={{ position: "relative", opacity: lockLocked ? 0.85 : 0.4 }}>
               {formatLandingStakeLabel(liveSummary, lockLocked)}
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -370,9 +370,9 @@ function DeployTerminal({ models }: { readonly models: readonly string[] }) {
               Identity, wallet, and services provisioned at creation — routed across a continuously
               updated model catalogue.
             </p>
-            <a href={publicSiteRoutes.launchAgentApp} className="lm-ghost">
+            <Link href={publicSiteRoutes.launchAgentApp} className="lm-ghost">
               Create an agent
-            </a>
+            </Link>
           </div>
           <div>
             <div className="lm-term">
@@ -431,9 +431,9 @@ function FinalCta() {
           <Link href={publicSiteRoutes.ranking} className="lm-btn-white">
             Browse agents
           </Link>
-          <a href={publicSiteRoutes.launchAgentApp} className="lm-ghost" style={{ marginTop: 0 }}>
+          <Link href={publicSiteRoutes.launchAgentApp} className="lm-ghost" style={{ marginTop: 0 }}>
             Create an agent
-          </a>
+          </Link>
           <Link href={publicSiteRoutes.launchToken} className="lm-ghost" style={{ marginTop: 0 }}>
             Launch a token
           </Link>
@@ -453,14 +453,14 @@ function LandingFooter() {
         </Link>
         <nav aria-label="Footer">
           {[
-            ["Tokens", publicSiteAbsoluteUrl(publicSiteRoutes.tokens)],
-            ["Agents", publicSiteAbsoluteUrl(publicSiteRoutes.agents)],
-            ["Ranking", publicSiteAbsoluteUrl(publicSiteRoutes.ranking)],
-            ["MCP", publicSiteAbsoluteUrl(publicSiteRoutes.mcp)],
-            ["Launchpad", publicSiteAbsoluteUrl(publicSiteRoutes.launchToken)],
+            ["Tokens", publicSiteRoutes.tokens],
+            ["Agents", publicSiteRoutes.agents],
+            ["Ranking", publicSiteRoutes.ranking],
+            ["MCP", publicSiteRoutes.mcp],
+            ["Launchpad", publicSiteRoutes.launchToken],
             ["Stake", STAKE_PAGE_HREF],
-            ["Docs", publicSiteAbsoluteUrl(publicSiteRoutes.docs)],
-            ["News", publicSiteAbsoluteUrl("/news")],
+            ["Docs", publicSiteRoutes.docs],
+            ["News", publicSiteRoutes.docs],
           ].map(([label, href]) => (
             <PublicNavLink key={label} href={href}>
               {label}

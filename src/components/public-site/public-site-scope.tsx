@@ -8,6 +8,7 @@ const AR_PUBLIC_CLASS = "ar-public";
 /** Applies public-site scoped tokens for the lifetime of the route-group layout. */
 export function PublicSiteScope({ children }: { readonly children: React.ReactNode }) {
   useEffect(() => {
+    document.documentElement.classList.remove("agentranking-app", "docs-route", "light");
     document.documentElement.classList.add(HTML_CLASS, AR_PUBLIC_CLASS, "dark");
     document.documentElement.style.colorScheme = "dark";
     return () => {

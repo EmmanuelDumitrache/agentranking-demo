@@ -138,7 +138,7 @@ export function PublicSiteNav({ links }: Props) {
     <header className="ar-public-nav ar-public-nav--ghost sticky top-0 z-50 h-[53px] flex items-center border-b border-transparent">
       <div className="relative flex items-center w-full h-full max-w-full px-4 sm:px-6">
         {/* Logo — always left */}
-        <PublicNavLink href={getPublicSiteUrl()} className={PUBLIC_NAV_LOGO_LINK_CLASS}>
+        <PublicNavLink href="/" className={PUBLIC_NAV_LOGO_LINK_CLASS}>
           <AgentRankingWordmark
             size="nav"
             priority

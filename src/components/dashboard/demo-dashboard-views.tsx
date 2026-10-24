@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -806,33 +807,40 @@ export function DemoAgentOverview({
   );
 }
 
-export function resolveSectionFromPathname(pathname: string): DashboardWorkspaceSection {
-  if (pathname.endsWith("/chat")) return "chat";
-  if (pathname.endsWith("/launchpad")) return "launchpad";
-  if (pathname.endsWith("/schedule")) return "schedule";
-  if (pathname.endsWith("/wallet")) return "wallet";
-  if (pathname.endsWith("/register")) return "register";
-  if (pathname.endsWith("/trade/terminal") || pathname.endsWith("/trade")) return "trade-terminal";
-  if (pathname.endsWith("/trade/swap")) return "trade-swap";
-  if (pathname.endsWith("/trade/perps")) return "trade-perps";
-  if (pathname.endsWith("/trade/copy")) return "trade-copy";
-  if (pathname.endsWith("/memory")) return "memory";
-  if (pathname.endsWith("/inference")) return "inference";
-  if (pathname.endsWith("/x402-market")) return "x402-market";
-  if (pathname.endsWith("/services")) return "services";
-  if (pathname.endsWith("/connections")) return "connections";
-  if (pathname.endsWith("/github")) return "github";
-  if (pathname.endsWith("/monetize")) return "monetize";
-  if (pathname.endsWith("/analytics")) return "analytics";
-  if (pathname.endsWith("/rankings")) return "rankings";
-  if (pathname.endsWith("/health")) return "health";
-  if (pathname.endsWith("/social")) return "social";
-  if (pathname.endsWith("/verify")) return "verify";
-  if (pathname.endsWith("/credentials")) return "credentials";
-  if (pathname.endsWith("/card")) return "card";
-  if (pathname.endsWith("/referrals")) return "referrals";
-  if (pathname.endsWith("/settings")) return "settings";
-  return "overview";
+export function resolveSectionFromPathname(
+  pathname: string,
+  fallbackSection?: DashboardWorkspaceSection,
+): DashboardWorkspaceSection {
+  const clean = pathname.replace(/\/+$/, "") || "/dashboard";
+  if (clean.endsWith("/chat")) return "chat";
+  if (clean.endsWith("/launchpad")) return "launchpad";
+  if (clean.endsWith("/schedule")) return "schedule";
+  if (clean.endsWith("/wallet")) return "wallet";
+  if (clean.endsWith("/register")) return "register";
+  if (clean.endsWith("/trade/terminal") || clean.endsWith("/trade")) return "trade-terminal";
+  if (clean.endsWith("/trade/swap")) return "trade-swap";
+  if (clean.endsWith("/trade/perps")) return "trade-perps";
+  if (clean.endsWith("/trade/copy")) return "trade-copy";
+  if (clean.endsWith("/memory")) return "memory";
+  if (clean.endsWith("/inference")) return "inference";
+  if (clean.endsWith("/x402-market")) return "x402-market";
+  if (clean.endsWith("/services")) return "services";
+  if (clean.endsWith("/connections")) return "connections";
+  if (clean.endsWith("/github")) return "github";
+  if (clean.endsWith("/monetize")) return "monetize";
+  if (clean.endsWith("/analytics")) return "analytics";
+  if (clean.endsWith("/rankings")) return "rankings";
+  if (clean.endsWith("/health")) return "health";
+  if (clean.endsWith("/social")) return "social";
+  if (clean.endsWith("/verify")) return "verify";
+  if (clean.endsWith("/credentials")) return "credentials";
+  if (clean.endsWith("/card")) return "card";
+  if (clean.endsWith("/referrals")) return "referrals";
+  if (clean.endsWith("/settings")) return "settings";
+  if (clean === "/dashboard" || /^\/dashboard\/agents\/\d+$/.test(clean)) {
+    return "overview";
+  }
+  return fallbackSection ?? "overview";
 }
 
 export function DemoSectionView({
@@ -840,13 +848,13 @@ export function DemoSectionView({
 }: {
   readonly section?: DashboardWorkspaceSection;
 }) {
+  const pathname = usePathname() ?? "/dashboard";
   const { activeAgent, creditsUsd, addCreditsUsd, isDeveloper, setIsDeveloper } =
     useDemoDashboard();
-  const resolvedSection: DashboardWorkspaceSection =
-    section ??
-    (typeof window !== "undefined"
-      ? resolveSectionFromPathname(window.location.pathname)
-      : "overview");
+  const resolvedSection: DashboardWorkspaceSection = useMemo(
+    () => resolveSectionFromPathname(pathname, section),
+    [pathname, section],
+  );
 
   const [chatMessages, setChatMessages] = useState<
     Array<{ role: "user" | "agent"; text: string; time: string }>

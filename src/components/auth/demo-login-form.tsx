@@ -70,7 +70,7 @@ export function DemoLoginForm() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("public-site", "light");
+    root.classList.remove("public-site", "ar-public", "docs-route", "light");
     root.classList.add("agentranking-app", "dark");
     root.style.colorScheme = "dark";
   }, []);

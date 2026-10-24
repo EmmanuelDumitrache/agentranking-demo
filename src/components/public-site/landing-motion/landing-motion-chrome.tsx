@@ -31,9 +31,9 @@ export function LandingMotionTopbar({ menuId, navLabel }: Props) {
         <Link className="btn-ghost" href={appLoginUrl()}>
           Sign in
         </Link>
-        <a className="btn-white" href={publicSiteRoutes.launchAgentApp}>
+        <Link className="btn-white" href={publicSiteRoutes.launchAgentApp}>
           Launch Agent
-        </a>
+        </Link>
       </div>
       <button
         type="button"

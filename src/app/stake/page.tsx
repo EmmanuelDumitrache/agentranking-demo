@@ -91,8 +91,8 @@ export default async function StakePage() {
       <StakeSiteFooter
         homeHref={publicPageUrls.publicSite}
         columns={footerColumns}
-        privacyHref={`${publicPageUrls.app}/privacy`}
-        termsHref={`${publicPageUrls.app}/terms`}
+        privacyHref="/privacy"
+        termsHref="/terms"
       />
     </StakeSiteShell>
   );

@@ -354,18 +354,23 @@ export function buildDashboardWorkspaceNavTree(
   return { overview, groups, settings };
 }
 
+function cleanDashboardPath(pathname: string): string {
+  return pathname.replace(/\/+$/, "") || APP_DASHBOARD_BASE;
+}
+
 export function isDashboardNavGroupActive(
   pathname: string,
   items: readonly DashboardNavItem[],
 ): boolean {
-  if (items.some((item) => isDashboardNavActive(pathname, item.href))) {
+  const cleanPath = cleanDashboardPath(pathname);
+  if (items.some((item) => isDashboardNavActive(cleanPath, item.href))) {
     return true;
   }
   if (items.some((item) => item.id.startsWith("trade-"))) {
-    const agentId = parseDashboardAgentDbIdFromPath(pathname);
+    const agentId = parseDashboardAgentDbIdFromPath(cleanPath);
     if (agentId != null) {
       const tradeRoot = `${APP_DASHBOARD_BASE}/agents/${agentId}/trade`;
-      return pathname === tradeRoot || pathname.startsWith(`${tradeRoot}/`);
+      return cleanPath === tradeRoot || cleanPath.startsWith(`${tradeRoot}/`);
     }
   }
   return false;
@@ -375,8 +380,9 @@ export function activeDashboardNavGroupIds(
   pathname: string,
   tree: DashboardWorkspaceNavTree,
 ): DashboardNavGroupId[] {
+  const cleanPath = cleanDashboardPath(pathname);
   return tree.groups
-    .filter(({ items }) => isDashboardNavGroupActive(pathname, items))
+    .filter(({ items }) => isDashboardNavGroupActive(cleanPath, items))
     .map(({ group }) => group.id);
 }
 
@@ -391,7 +397,8 @@ export function buildDashboardWorkspaceNav(agentDbId: number | null): DashboardN
 }
 
 export function parseDashboardAgentDbIdFromPath(pathname: string): number | null {
-  const match = /^\/dashboard\/agents\/(\d+)(?:\/|$)/.exec(pathname);
+  const cleanPath = cleanDashboardPath(pathname);
+  const match = /^\/dashboard\/agents\/(\d+)(?:\/|$)/.exec(cleanPath);
   if (!match) return null;
   const id = Number.parseInt(match[1], 10);
   return Number.isFinite(id) && id > 0 ? id : null;
@@ -405,19 +412,21 @@ export function workspaceSectionLabel(
 
 export function isDashboardNavActive(pathname: string, href: string): boolean {
   if (!href || href === "#") return false;
-  if (pathname === href) return true;
-  const agentId = parseDashboardAgentDbIdFromPath(href);
+  const cleanPath = cleanDashboardPath(pathname);
+  const cleanHref = cleanDashboardPath(href);
+  if (cleanPath === cleanHref) return true;
+  const agentId = parseDashboardAgentDbIdFromPath(cleanHref);
   if (agentId != null) {
     const overviewHref = `${APP_DASHBOARD_BASE}/agents/${agentId}`;
-    if (href === overviewHref) {
-      return pathname === href;
+    if (cleanHref === overviewHref) {
+      return cleanPath === cleanHref || cleanPath === APP_DASHBOARD_BASE;
     }
-    return pathname.startsWith(`${href}/`) || pathname === href;
+    return cleanPath.startsWith(`${cleanHref}/`) || cleanPath === cleanHref;
   }
-  if (href === APP_DASHBOARD_BASE) {
-    return pathname === APP_DASHBOARD_BASE;
+  if (cleanHref === APP_DASHBOARD_BASE) {
+    return cleanPath === APP_DASHBOARD_BASE;
   }
-  return pathname.startsWith(`${href}/`);
+  return cleanPath.startsWith(`${cleanHref}/`);
 }
 
 export function defaultDashboardAgentPath(agentDbId: number): string {
@@ -425,8 +434,9 @@ export function defaultDashboardAgentPath(agentDbId: number): string {
 }
 
 export function agentSwitchHref(pathname: string, targetAgentDbId: number): string {
-  if (/^\/dashboard\/agents\/\d+/.test(pathname)) {
-    return pathname.replace(/^\/dashboard\/agents\/\d+/, `/dashboard/agents/${targetAgentDbId}`);
+  const cleanPath = cleanDashboardPath(pathname);
+  if (/^\/dashboard\/agents\/\d+/.test(cleanPath)) {
+    return cleanPath.replace(/^\/dashboard\/agents\/\d+/, `/dashboard/agents/${targetAgentDbId}`);
   }
   return `/dashboard/agents/${targetAgentDbId}`;
 }

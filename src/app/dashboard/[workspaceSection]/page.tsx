@@ -1,4 +1,5 @@
 import { DemoSectionView } from "@/components/dashboard/demo-dashboard-views";
+import type { DashboardWorkspaceSection } from "@/lib/dashboard/navigation";
 
 export const dynamicParams = false;
 
@@ -19,6 +20,11 @@ export function generateStaticParams() {
   }));
 }
 
-export default function DashboardWorkspaceSectionPage() {
-  return <DemoSectionView />;
+export default async function DashboardWorkspaceSectionPage({
+  params,
+}: {
+  readonly params: Promise<{ workspaceSection: string }>;
+}) {
+  const { workspaceSection } = await params;
+  return <DemoSectionView section={workspaceSection as DashboardWorkspaceSection} />;
 }

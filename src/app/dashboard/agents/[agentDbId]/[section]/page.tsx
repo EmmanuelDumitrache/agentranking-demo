@@ -1,7 +1,22 @@
 import { DEMO_SEED_AGENTS } from "@/lib/demo-store";
 import { DemoSectionView } from "@/components/dashboard/demo-dashboard-views";
+import type { DashboardWorkspaceSection } from "@/lib/dashboard/navigation";
 
 export const dynamicParams = false;
+
+const STATIC_AGENT_IDS = Array.from(
+  new Set([
+    ...DEMO_SEED_AGENTS.map((agent) => agent.id),
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+  ]),
+);
 
 const AGENT_SECTIONS = [
   "chat",
@@ -25,10 +40,10 @@ const AGENT_SECTIONS = [
 
 export function generateStaticParams() {
   const params: Array<{ agentDbId: string; section: string }> = [];
-  for (const agent of DEMO_SEED_AGENTS) {
+  for (const id of STATIC_AGENT_IDS) {
     for (const section of AGENT_SECTIONS) {
       params.push({
-        agentDbId: String(agent.id),
+        agentDbId: String(id),
         section,
       });
     }
@@ -36,6 +51,15 @@ export function generateStaticParams() {
   return params;
 }
 
-export default function DashboardAgentSectionPage() {
-  return <DemoSectionView />;
+export default async function DashboardAgentSectionPage({
+  params,
+}: {
+  readonly params: Promise<{ agentDbId: string; section: string }>;
+}) {
+  const { section } = await params;
+  const resolved: DashboardWorkspaceSection =
+    section === "trade"
+      ? "trade-terminal"
+      : (section as DashboardWorkspaceSection);
+  return <DemoSectionView section={resolved} />;
 }

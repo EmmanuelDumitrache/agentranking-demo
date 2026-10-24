@@ -114,12 +114,12 @@ export function LandingMotionPage({ data, initialStakeSummary, modelCount = 300 
                       </span>
                     ))}
                   </div>
-                  <a className="cta" href={publicSiteRoutes.agents}>
+                  <Link className="cta" href={publicSiteRoutes.agents}>
                     <span className="cta__label">Explore Agents</span>
                     <span className="cta__arrow">
                       <img src={MOTION_ASSETS.arrowUp} alt="" />
                     </span>
-                  </a>
+                  </Link>
                 </div>
                 <div className="hero__pane hero__pane--right showcase" id="leaderboard">
                   <video
@@ -197,7 +197,7 @@ export function LandingMotionPage({ data, initialStakeSummary, modelCount = 300 
                   <div className="lcard-slot">
                     <article className="lcard lcard--transfers" id="deploy">
                       <div className="lcard__surface" />
-                      <a
+                      <Link
                         className="lcard__link"
                         href={publicSiteRoutes.launchAgentApp}
                         aria-label="Create an agent"
@@ -240,7 +240,7 @@ export function LandingMotionPage({ data, initialStakeSummary, modelCount = 300 
                   <div className="lcard-slot">
                     <article className="lcard lcard--staking" id="staking">
                       <div className="lcard__surface" />
-                      <a className="lcard__link" href={publicSiteRoutes.stake} aria-label="Stake $AR" />
+                      <Link className="lcard__link" href={publicSiteRoutes.stake} aria-label="Stake $AR" />
                       <div className="lcard__content">
                         <div className="lcard__art">
                           <Ring className="lring--orbit-outer" size={505} href="#ringDown" />

@@ -9,16 +9,16 @@
 
 [[redirects]]
   from = "/agents/*"
-  to = "/agents/8453/101/aixbt-v2/index.html"
+  to = "/agents/8453/101/aixbt-v2.html"
   status = 200
 
 [[redirects]]
   from = "/tokens/*"
-  to = "/tokens/92eXvBFGBAXwgmPf6t6CUCNJH2xChsCJuWzaGPjyPUmP/index.html"
+  to = "/tokens/92eXvBFGBAXwgmPf6t6CUCNJH2xChsCJuWzaGPjyPUmP.html"
   status = 200
 
 [[redirects]]
   from = "/dashboard/agents/*"
-  to = "/dashboard/index.html"
+  to = "/dashboard.html"
   status = 200
 

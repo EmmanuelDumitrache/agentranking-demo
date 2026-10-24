@@ -147,7 +147,7 @@ export function DemoDashboardShell({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("public-site", "light");
+    root.classList.remove("public-site", "ar-public", "docs-route", "light");
     root.classList.add("agentranking-app", "dark");
     root.style.colorScheme = "dark";
     try {
@@ -519,8 +519,20 @@ export function DemoDashboardShell({
                     </div>
                   </div>
 
-                  {/* Right: multi-chain wallet pill + credits */}
+                  {/* Right: public site link + multi-chain wallet pill + credits */}
                   <div className="flex shrink-0 items-center gap-2">
+                    <Link
+                      href="/"
+                      className={cn(
+                        "ui-youtube-topbar-control ui-youtube-topbar-control--compact hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      )}
+                      title="Return to AgentRanking public site"
+                    >
+                      <span>Public site</span>
+                      <ExternalLink className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                    </Link>
+
                     <button
                       type="button"
                       onClick={() => setPortfolioOpen(true)}

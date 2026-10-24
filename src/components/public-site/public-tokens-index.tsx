@@ -27,6 +27,7 @@ import {
 import { getPublicAgentVerificationStatus } from "@/lib/public-site/agent-verification";
 import { EthereumIcon } from "@/components/shared/ethereum-icon";
 import type { TokensShareDayPoint } from "@/lib/public-site/tokens-share-card";
+import { buildDemoTokenDiscoveryCards } from "@/lib/demo-store";
 import { cn } from "@/lib/utils";
 const PAGE_SIZE = 60;
 const REFRESH_MS = 60_000;
@@ -276,19 +277,20 @@ function TokensMarketStats({
     </PublicSitePanel>
   );
 }
-export function PublicTokensIndex({ cards, officialTokens, officialMarkets }: Props) {
+export function PublicTokensIndex({ cards: initialCards, officialTokens, officialMarkets }: Props) {
   const router = useRouter();
+  const [cards, setCards] = useState<readonly TokenDiscoveryCardModel[]>(initialCards);
   const [query, setQuery] = useState("");
-  const [timeframe, setTimeframe] = useState<PublicSiteTimeframeKey>("24h");
+  const [timeframe, setTimeframe] = useState<PublicSiteTimeframeKey>("all");
   const [metric, setMetric] = useState<PublicSiteMetricKey>("volume");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   useArLiveFeedRefresh({ kinds: ["token_launch"] });
   useEffect(() => {
-    const id = window.setInterval(() => {
-      router.refresh();
-    }, REFRESH_MS);
-    return () => window.clearInterval(id);
-  }, [router]);
+    const syncCards = () => setCards(buildDemoTokenDiscoveryCards());
+    syncCards();
+    window.addEventListener("agentranking:demo-updated", syncCards);
+    return () => window.removeEventListener("agentranking:demo-updated", syncCards);
+  }, []);
   const filteredItems = useMemo(() => {
     const q = query.trim();
     const rows = buildBrowseRows(cards, officialTokens, officialMarkets, q).filter(

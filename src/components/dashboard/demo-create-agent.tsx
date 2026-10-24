@@ -891,6 +891,18 @@ export function DemoImportAgentConfig({
 
 export function DemoCreateAgentEntry() {
   const [mode, setMode] = useState<"choose" | "create" | "import">("choose");
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(MIGRATION_PROMPT);
+      setCopiedPrompt(true);
+      showToast("Migration prompt copied.", "success");
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    } catch {
+      showToast("Could not copy the migration prompt.", "error");
+    }
+  };
 
   if (mode === "create") {
     return <DemoCreateAgentWizard onBackToEntry={() => setMode("choose")} />;
@@ -901,68 +913,114 @@ export function DemoCreateAgentEntry() {
   }
 
   return (
-    <div className="ui-onboarding-youtube flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-12 text-[#f1f1f1]">
-      <div className="mx-auto w-full max-w-lg space-y-8">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#aaa]">
-            Create Agent · Step 1 of 2
-          </p>
-          <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#f1f1f1] sm:text-3xl">
-            How would you like to add your agent?
-          </h1>
-          <p className="mt-1.5 max-w-lg text-sm leading-relaxed text-[#aaa]">
-            Start fresh with the guided setup, import an existing configuration, or use the raw
-            ERC-8004 contract builder.
-          </p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => setMode("create")}
-            className="group flex flex-col items-start gap-3 rounded-2xl border border-[#303030] bg-[#181818] p-5 text-left transition-colors hover:border-[#717171] hover:bg-[#212121]"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#272727] text-[#f1f1f1] transition-colors group-hover:bg-[#3f3f3f]">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-semibold text-[#f1f1f1]">Create from scratch</p>
-              <p className="mt-1 text-xs leading-relaxed text-[#aaa]">
-                Set up name, persona, branding, and links step by step.
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMode("import")}
-            className="group flex flex-col items-start gap-3 rounded-2xl border border-[#303030] bg-[#181818] p-5 text-left transition-colors hover:border-[#717171] hover:bg-[#212121]"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#272727] text-[#f1f1f1] transition-colors group-hover:bg-[#3f3f3f]">
-              <FileUp className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-semibold text-[#f1f1f1]">Import existing agent</p>
-              <p className="mt-1 text-xs leading-relaxed text-[#aaa]">
-                Bring an agent from another platform using a JSON migration package.
-              </p>
-            </div>
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between rounded-2xl border border-[#303030] bg-[#141414] px-5 py-4">
+    <div className="ui-onboarding-youtube ui-create-agent-page ui-dashboard-overview mx-auto w-full max-w-5xl space-y-4 px-4 py-6 text-[#f1f1f1] sm:px-6">
+      <div className="ui-overview-summary overflow-hidden rounded-xl">
+        <div className="ui-overview-identity flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
           <div>
-            <p className="text-sm font-semibold text-[#f1f1f1]">
-              Deploying directly to ERC-8004 EVM contracts?
-            </p>
-            <p className="mt-0.5 text-xs text-[#aaa]">
-              Open the 7-step on-chain registration &amp; URI manifest builder.
+            <h1>Create an agent</h1>
+            <p className="mt-1 text-sm text-[#aaa]">
+              Start fresh or safely bring an existing agent into your workspace.
             </p>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/create">Open ERC-8004 Builder</Link>
+          <span className="rounded-full bg-[#272727] px-3 py-1.5 text-xs text-[#aaa]">
+            <span className="font-semibold text-[#f1f1f1]">7</span> of 10 slots available
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <button
+          type="button"
+          className="ui-onboarding-youtube__choice ui-overview-panel group min-h-44 rounded-xl p-5 text-left sm:p-6"
+          onClick={() => setMode("create")}
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#272727]">
+              <Sparkles className="h-5 w-5 text-[#f1f1f1]" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-base font-semibold">Create from scratch</p>
+                <ArrowRight className="size-4 text-[#717171] transition-transform group-hover:translate-x-0.5" aria-hidden />
+              </div>
+              <p className="mt-1 text-sm text-[#aaa]">
+                Define its identity, goals, links, and branding. A dedicated Solana wallet is generated automatically.
+              </p>
+              <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#c7c7c7]">
+                <Check className="size-3.5" aria-hidden />
+                Guided five-step setup
+              </p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className="ui-onboarding-youtube__choice ui-overview-panel group min-h-44 rounded-xl p-5 text-left sm:p-6"
+          onClick={() => setMode("import")}
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#272727]">
+              <FileUp className="h-5 w-5 text-[#aaa]" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-base font-semibold">Import existing agent</p>
+                <ArrowRight className="size-4 text-[#717171] transition-transform group-hover:translate-x-0.5" aria-hidden />
+              </div>
+              <p className="mt-1 text-sm text-[#aaa]">
+                Transfer a persona and operating instructions with a validated, secret-free JSON package.
+              </p>
+              <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#c7c7c7]">
+                <ShieldCheck className="size-3.5" aria-hidden />
+                Local validation before import
+              </p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Migration prompt */}
+      <div className="ui-onboarding-youtube__panel ui-overview-panel overflow-hidden rounded-xl">
+        <div className="ui-overview-panel-header flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+          <div>
+            <p className="text-sm font-semibold">Moving from another platform?</p>
+            <p className="mt-1 text-xs leading-relaxed text-[#aaa]">
+              Give this prompt to your current agent, then import its JSON response.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleCopyPrompt()}
+          >
+            {copiedPrompt ? (
+              <Check className="size-3.5" aria-hidden />
+            ) : (
+              <Copy className="size-3.5" aria-hidden />
+            )}
+            {copiedPrompt ? "Copied" : "Copy prompt"}
           </Button>
         </div>
+        <div className="px-4 py-3 sm:px-5">
+          <p className="line-clamp-3 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#8f8f8f]">
+            {MIGRATION_PROMPT}
+          </p>
+        </div>
+      </div>
+
+      <div className="ui-overview-panel flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3.5 sm:px-5">
+        <div>
+          <p className="text-sm font-semibold text-[#f1f1f1]">
+            Deploying directly to ERC-8004 EVM contracts?
+          </p>
+          <p className="mt-0.5 text-xs text-[#aaa]">
+            Open the 7-step on-chain registration &amp; URI manifest builder.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/create">Open ERC-8004 Builder</Link>
+        </Button>
       </div>
     </div>
   );

@@ -3,8 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Activity,
-  ArrowLeftRight,
   ArrowUpRight,
   BadgeCheck,
   BarChart3,
@@ -12,32 +10,34 @@ import {
   Brain,
   CalendarClock,
   Check,
-  Code2,
   Coins,
   Copy,
   Cpu,
-  CreditCard,
   ExternalLink,
   Fingerprint,
   IdCard,
-  Layers,
   MessageSquare,
   Pencil,
-  Plug,
   Plus,
+  RefreshCw,
   Send,
   Settings,
-  ShieldCheck,
   Sparkles,
-  Store,
-  Terminal,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
+import { RuntimeImage } from "@/components/shared/runtime-image";
 import { useDemoDashboard } from "@/components/dashboard/demo-dashboard-shell";
+import {
+  EvmWalletFundsChart,
+  SolanaWalletFundsChart,
+  type WalletChartTransfer,
+} from "@/components/dashboard/wallet-funds-chart";
 import { AgentAvatar } from "@/components/shared/agent-avatar";
 import { VerifiedTick } from "@/components/shared/verified-badge";
 import { RegisteredTick } from "@/components/shared/registered-badge";
+import { EthereumIcon } from "@/components/shared/ethereum-icon";
+import { RobinhoodChainIcon } from "@/components/shared/robinhood-chain-icon";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,10 +50,111 @@ import {
 } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-simple";
 import { agentPublicPath } from "@/lib/agent-public-url";
-import { getChainByChainId } from "@/lib/chains";
 import { SOLANA_CHAIN_ID } from "@/lib/chain-constants";
+import { cn } from "@/lib/utils";
 import { saveCustomDemoAgentToStorage, type DemoSeedAgent } from "@/lib/demo-store";
 import type { DashboardWorkspaceSection } from "@/lib/dashboard/navigation";
+
+function shortenAddr(value: string, chars = 4): string {
+  if (value.length <= chars * 2 + 1) return value;
+  return `${value.slice(0, chars)}…${value.slice(-chars)}`;
+}
+
+/* ── Summary pill (one metric column) — exact match to 8004webapp/src/components/dashboard/dashboard-summary.tsx ── */
+function SummaryPill({
+  label,
+  value,
+  hint,
+  href,
+  className,
+}: Readonly<{
+  label: string;
+  value: string;
+  hint?: string;
+  href?: string;
+  className?: string;
+}>) {
+  const inner = (
+    <div className="ui-overview-metric-content min-w-0 space-y-0.5">
+      <p className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
+        {label}
+      </p>
+      <p className="truncate text-sm font-semibold tabular-nums leading-tight sm:text-[15px]">
+        {value}
+      </p>
+      {hint ? (
+        <p
+          className={cn(
+            "truncate text-[11px] leading-snug",
+            href ? "text-primary/80" : "text-muted-foreground",
+          )}
+          title={hint}
+        >
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={cn(
+          "ui-overview-metric flex min-w-0 flex-col justify-center px-3 py-2.5 sm:px-4 sm:py-3",
+          className,
+        )}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div
+      className={cn(
+        "ui-overview-metric flex min-w-0 flex-col justify-center px-3 py-2.5 sm:px-4 sm:py-3",
+        className,
+      )}
+    >
+      {inner}
+    </div>
+  );
+}
+
+/* ── Quick action card — exact match to 8004webapp/src/components/dashboard/dashboard-summary.tsx ── */
+function QuickActionCard({
+  href,
+  icon: Icon,
+  label,
+}: Readonly<{
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}>) {
+  return (
+    <Link
+      href={href}
+      className="ui-action-card ui-overview-quick-action group"
+    >
+      <Icon className="text-muted-foreground h-4 w-4 shrink-0 group-hover:text-foreground transition-colors" aria-hidden />
+      <span className="text-sm font-medium">{label}</span>
+      <div className="ml-auto text-muted-foreground/40 text-sm transition-colors group-hover:text-muted-foreground">
+        →
+      </div>
+    </Link>
+  );
+}
+
+/* ── Empty state panel ── */
+function EmptyStatePanel({ title, description }: Readonly<{ title: string; description: string }>) {
+  return (
+    <div className="rounded-lg border border-border/30 px-4 py-3">
+      <p className="text-muted-foreground/70 text-xs font-medium">{title}</p>
+      <p className="text-muted-foreground/40 mt-1 text-[11px] leading-relaxed">
+        {description}
+      </p>
+    </div>
+  );
+}
 
 function CopyInlineButton({
   text,
@@ -79,9 +180,7 @@ function CopyInlineButton({
       className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
       title={`Copy ${label}`}
     >
-      <span>
-        {text.slice(0, 6)}…{text.slice(-4)}
-      </span>
+      <span>{shortenAddr(text, 5)}</span>
       {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
     </button>
   );
@@ -92,23 +191,65 @@ export function DemoAgentOverview({
 }: {
   readonly agent?: DemoSeedAgent;
 }) {
-  const { activeAgent, refreshAgents } = useDemoDashboard();
+  const { activeAgent, refreshAgents, creditsUsd, openCreditsDialog } = useDemoDashboard();
   const agent = propAgent ?? activeAgent;
+  const base = `/dashboard/agents/${agent.id}`;
+
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState(agent.name);
   const [editDesc, setEditDesc] = useState(agent.description);
   const [editWebsite, setEditWebsite] = useState(agent.socials.website ?? "");
   const [editTwitter, setEditTwitter] = useState(agent.socials.twitter ?? "");
 
+  const [solCopied, setSolCopied] = useState(false);
+  const [evmCopied, setEvmCopied] = useState(false);
+  const [solSyncing, setSolSyncing] = useState(false);
+  const [evmSyncing, setEvmSyncing] = useState(false);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendToAddress, setSendToAddress] = useState("");
+  const [sendAmountSol, setSendAmountSol] = useState("0.25");
+
   const publicProfileHref = agentPublicPath({
     chainId: agent.chainId,
     agentId: agent.agentId,
     name: agent.name,
   });
-  const chainConfig = getChainByChainId(agent.chainId);
-  const chainLabel =
-    chainConfig?.name ?? (agent.chainId === SOLANA_CHAIN_ID ? "Solana" : `Chain ${agent.chainId}`);
+  const isVerified = agent.isVerified;
+  const isSolanaRegistered =
+    agent.chainId === SOLANA_CHAIN_ID || agent.sapVerified;
   const tok = agent.token;
+  const hasToken = Boolean(tok);
+  const tokenPageHref = tok ? `/tokens/${tok.mint}` : `${base}/launchpad`;
+
+  const demoTransfers: WalletChartTransfer[] = [
+    {
+      token: "SOL",
+      fromPublicKey: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+      toPublicKey: agent.agentWallet,
+      amountLamports: "1450000000",
+      status: "confirmed",
+      createdAt: new Date(Date.now() - 86_400_000 * 4).toISOString(),
+      confirmedAt: new Date(Date.now() - 86_400_000 * 4).toISOString(),
+    },
+    {
+      token: "SOL",
+      fromPublicKey: agent.agentWallet,
+      toPublicKey: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+      amountLamports: "320000000",
+      status: "confirmed",
+      createdAt: new Date(Date.now() - 86_400_000 * 2).toISOString(),
+      confirmedAt: new Date(Date.now() - 86_400_000 * 2).toISOString(),
+    },
+    {
+      token: "SOL",
+      fromPublicKey: "MetaplexFeeVault11111111111111111111111111",
+      toPublicKey: agent.agentWallet,
+      amountLamports: "840000000",
+      status: "confirmed",
+      createdAt: new Date(Date.now() - 86_400_000 * 1).toISOString(),
+      confirmedAt: new Date(Date.now() - 86_400_000 * 1).toISOString(),
+    },
+  ];
 
   const handleSaveEdit = () => {
     const updated: DemoSeedAgent = {
@@ -128,318 +269,449 @@ export function DemoAgentOverview({
   };
 
   return (
-    <div className="ui-overview">
-      {/* Header */}
-      <div className="ui-overview-header">
-        <AgentAvatar
-          image={agent.image}
-          name={agent.name}
-          size="lg"
-          className="!size-14 rounded-2xl shrink-0"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
-              {agent.name}
-            </h1>
-            {agent.isVerified ? <VerifiedTick size="md" /> : null}
-            {agent.chainId === SOLANA_CHAIN_ID || agent.sapVerified ? (
-              <RegisteredTick size="md" />
-            ) : null}
-            <span className="rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-              AR-CRED-{agent.agentId}
-            </span>
+    <div className="ui-dashboard-overview mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 min-w-0">
+      {/* ──────────── Top unified summary strip ──────────────── */}
+      <div className="ui-overview-summary overflow-hidden rounded-xl">
+        {/* Identity */}
+        <div className="ui-overview-identity flex min-w-0 items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5">
+          <div className="shrink-0">
+            <AgentAvatar image={agent.image} name={agent.name} size="lg" />
           </div>
-          <p className="mt-1 line-clamp-2 max-w-2xl text-sm text-muted-foreground">
-            {agent.description}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditName(agent.name);
-              setEditDesc(agent.description);
-              setEditWebsite(agent.socials.website ?? "");
-              setEditTwitter(agent.socials.twitter ?? "");
-              setEditOpen(true);
-            }}
-          >
-            <Pencil className="mr-1.5 size-3.5" />
-            Edit profile
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={publicProfileHref}>
-              Public profile
-              <ArrowUpRight className="ml-1 size-3.5" />
-            </Link>
-          </Button>
-          {tok ? (
-            <Button size="sm" asChild>
-              <Link href={`/tokens/${tok.mint}`}>
-                <Coins className="mr-1.5 size-3.5" />
-                View ${tok.symbol}
-              </Link>
-            </Button>
-          ) : (
-            <Button size="sm" asChild>
-              <Link href={`/dashboard/agents/${agent.id}/launchpad`}>
-                <Coins className="mr-1.5 size-3.5" />
-                Launch token
-              </Link>
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Top 4 Metrics */}
-      <div className="ui-overview-metrics">
-        <div className="ui-overview-metric">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            AR Trust Score
-          </p>
-          <div className="mt-1.5 flex items-baseline justify-between">
-            <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
-              {agent.score.toFixed(1)}
-            </span>
-            <span className="text-xs font-medium text-emerald-400">Top 1% Indexed</span>
-          </div>
-          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
-            <div
-              className="h-full rounded-full bg-foreground"
-              style={{ width: `${Math.min(100, agent.score)}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="ui-overview-metric">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Linked Token Market
-          </p>
-          {tok ? (
-            <>
-              <div className="mt-1.5 flex items-baseline justify-between">
-                <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
-                  ${(tok.marketCapUsd / 1_000_000).toFixed(2)}M
-                </span>
-                <span
-                  className={
-                    tok.priceChange24hPct >= 0
-                      ? "font-mono text-xs font-medium text-emerald-400"
-                      : "font-mono text-xs font-medium text-red-400"
-                  }
-                >
-                  {tok.priceChange24hPct >= 0 ? "+" : ""}
-                  {tok.priceChange24hPct.toFixed(1)}%
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                ${tok.symbol} · ${tok.priceUsd} · Vol ${(tok.volume24hUsd / 1_000).toFixed(0)}K
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="mt-1.5 text-lg font-semibold text-muted-foreground">Not launched</p>
-              <Link
-                href={`/dashboard/agents/${agent.id}/launchpad`}
-                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground underline"
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
+                {agent.name}
+              </h1>
+              {isVerified ? <VerifiedTick size="md" /> : null}
+              {isSolanaRegistered ? <RegisteredTick size="md" /> : null}
+            </div>
+            {agent.description ? (
+              <p
+                className="text-muted-foreground mt-0.5 truncate text-xs leading-relaxed"
+                title={agent.description}
               >
-                Launch on Metaplex / Pump.fun →
+                {agent.description}
+              </p>
+            ) : null}
+            <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
+              {shortenAddr(agent.agentWallet, 5)}
+              <span className="text-muted-foreground/50"> · </span>
+              <Link
+                href="/dashboard/credentials"
+                className="hover:text-foreground"
+                title="Account credential"
+              >
+                AR-CRED-{agent.agentId}
               </Link>
-            </>
-          )}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Link
+              href={publicProfileHref}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[#212121] hover:text-foreground"
+              aria-label="View public agent page"
+              title="View public page"
+            >
+              <ExternalLink className="size-4" aria-hidden />
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setEditName(agent.name);
+                setEditDesc(agent.description);
+                setEditWebsite(agent.socials.website ?? "");
+                setEditTwitter(agent.socials.twitter ?? "");
+                setEditOpen(true);
+              }}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[#212121] hover:text-foreground"
+              aria-label="Edit agent profile"
+              title="Edit profile"
+            >
+              <Pencil className="size-4" aria-hidden />
+            </button>
+          </div>
         </div>
 
-        <div className="ui-overview-metric">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Creator Fee Revenue (90%)
-          </p>
-          <div className="mt-1.5 flex items-baseline justify-between">
-            <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
-              2.21 SOL
-            </span>
-            <span className="font-mono text-xs text-emerald-400">$424.30 earned</span>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Auto-settled to agent wallet · 10% to $AR flywheel
-          </p>
-        </div>
-
-        <div className="ui-overview-metric">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            MCP &amp; x402 Telemetry
-          </p>
-          <div className="mt-1.5 flex items-baseline justify-between">
-            <span className="font-mono text-2xl font-bold tabular-nums text-emerald-400">
-              99.94%
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">42ms p95</span>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {agent.services.length} active endpoint{agent.services.length === 1 ? "" : "s"} · x402{" "}
-            {agent.x402Support ? "Enabled" : "Off"}
-          </p>
+        {/* Metrics — divided board; 2×2 on slim, 1×4 when wider */}
+        <div className="ui-overview-metrics grid grid-cols-2 sm:grid-cols-4">
+          <SummaryPill
+            className="border-b border-r border-border/60 sm:border-b-0"
+            label="Wallet"
+            value="$1,428.50"
+            hint="4.82 SOL · 500 USDC · 12.5k AR"
+          />
+          <SummaryPill
+            className="border-b border-border/60 sm:border-b-0 sm:border-r"
+            label="LLM"
+            value={`$${creditsUsd.toFixed(2)}`}
+            hint="Credits"
+          />
+          <SummaryPill
+            className="border-r border-border/60"
+            label="Status"
+            value={isVerified ? "Verified" : "Unverified"}
+            hint={isVerified ? "Premium" : "Verify"}
+            href={isVerified ? undefined : "/dashboard/verify"}
+          />
+          <SummaryPill
+            label="Token"
+            value={hasToken && tok ? `$${tok.symbol}` : "None"}
+            hint={hasToken ? "Manage" : "Launch"}
+            href={tokenPageHref}
+          />
         </div>
       </div>
 
-      {/* 2-Column Sections Grid */}
-      <div className="ui-overview-grid">
-        {/* Agent Details */}
-        <section className="ui-overview-section">
-          <h2>Agent Identity &amp; Custody</h2>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Status</span>
-            <span className="inline-flex items-center gap-1.5 font-medium text-emerald-400">
-              <span className="size-2 rounded-full bg-emerald-400" />
-              Active &amp; Indexed
-            </span>
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Primary Registry</span>
-            <span className="font-medium">
-              {chainLabel} ({agent.chainId === SOLANA_CHAIN_ID ? "SAP / MPL-Core" : "ERC-8004"})
-            </span>
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Agent ID</span>
-            <span className="font-mono">#{agent.agentId}</span>
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Solana Custody Wallet</span>
-            <CopyInlineButton text={agent.agentWallet} label="Solana wallet" />
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">EVM Owner Address</span>
-            <CopyInlineButton text={agent.owner} label="EVM owner" />
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Operator Credential</span>
-            <Link
-              href="/dashboard/credentials"
-              className="font-mono text-xs text-foreground underline"
-            >
-              AR-CRED-{agent.agentId} ({agent.verificationTier})
-            </Link>
-          </div>
-        </section>
+      {/* ──────────── Quick actions ──────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <QuickActionCard href={`${base}/chat`} icon={MessageSquare} label="Chat" />
+        <QuickActionCard href={`${base}/memory`} icon={Brain} label="Memory" />
+        <QuickActionCard href={tokenPageHref} icon={Coins} label="Token" />
+        <QuickActionCard href={`${base}/wallet`} icon={Wallet} label="Wallet" />
+        <QuickActionCard href={`${base}/register`} icon={Fingerprint} label="Register" />
+        <QuickActionCard href={`${base}/inference`} icon={Cpu} label="Inference" />
+        <QuickActionCard href="/dashboard/verify" icon={BadgeCheck} label="Verification" />
+        <QuickActionCard href="/dashboard/credentials" icon={IdCard} label="Credentials" />
+        <QuickActionCard href={`${base}/analytics`} icon={BarChart3} label="Analytics" />
+        <QuickActionCard href="/dashboard/settings" icon={Settings} label="Settings" />
+      </div>
 
-        {/* Token & Launchpad */}
-        <section className="ui-overview-section">
-          <h2>Token &amp; Creator Economics</h2>
-          {tok ? (
-            <>
-              <div className="ui-overview-row">
-                <span className="text-muted-foreground">Token</span>
-                <Link
-                  href={`/tokens/${tok.mint}`}
-                  className="font-semibold text-foreground underline"
-                >
-                  {tok.name} (${tok.symbol})
-                </Link>
+      {/* ──────────── Detail sections ───────────────────────── */}
+      <div className="grid gap-4 min-w-0">
+        <div className="space-y-4 min-w-0">
+          {/* Agent Wallet Panel */}
+          <div className="ui-overview-panel rounded-xl p-0">
+            <div className="ui-overview-panel-header flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="text-muted-foreground h-4 w-4 shrink-0" aria-hidden />
+                <h2 className="text-sm font-semibold">Agent wallet</h2>
               </div>
-              <div className="ui-overview-row">
-                <span className="text-muted-foreground">Launch Venue</span>
-                <span>{tok.venue} · Mainnet</span>
-              </div>
-              <div className="ui-overview-row">
-                <span className="text-muted-foreground">Mint Address</span>
-                <CopyInlineButton text={tok.mint} label="Token mint" />
-              </div>
-              <div className="ui-overview-row">
-                <span className="text-muted-foreground">24h Transactions</span>
-                <span className="font-mono text-xs">
-                  <span className="text-emerald-400">{tok.buys24h} buys</span> ·{" "}
-                  <span className="text-red-400">{tok.sells24h} sells</span>
-                </span>
-              </div>
-              <div className="ui-overview-row">
-                <span className="text-muted-foreground">Fee Split</span>
-                <span>90% Creator · 10% $AR Buyback Flywheel</span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/agents/${agent.id}/launchpad`}>
-                    Manage Launchpad &amp; Fees
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/tokens/${tok.mint}`}>
-                    Public Token Page <ArrowUpRight className="ml-1 size-3.5" />
-                  </Link>
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-3 py-2">
-              <p className="text-sm text-muted-foreground">
-                Bind an official token to {agent.name} via Metaplex Genesis or Pump.fun and earn 90%
-                of creator trading fees automatically.
-              </p>
-              <Button size="sm" asChild>
-                <Link href={`/dashboard/agents/${agent.id}/launchpad`}>
-                  <Coins className="mr-1.5 size-3.5" />
-                  Open Token Launchpad
-                </Link>
-              </Button>
+              <dl className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:gap-4">
+                <div className="flex items-center gap-1">
+                  <dt className="flex items-center gap-0.5 text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
+                    <RuntimeImage src="/branding/solana/solanaLogoMark.svg" alt="" className="h-2.5 w-2.5 shrink-0 opacity-60" aria-hidden />
+                    SOL
+                  </dt>
+                  <dd className="tabular-nums font-semibold">4.82</dd>
+                </div>
+                <div className="flex items-center gap-1">
+                  <dt className="flex items-center gap-0.5 text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
+                    <RuntimeImage src="/chain-assets/usdc.webp" alt="" className="h-2.5 w-2.5 shrink-0 opacity-60" aria-hidden />
+                    USDC
+                  </dt>
+                  <dd className="tabular-nums font-semibold">500</dd>
+                </div>
+                <div className="flex items-center gap-1">
+                  <dt className="flex items-center gap-0.5 text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
+                    <EthereumIcon className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                    ETH
+                  </dt>
+                  <dd className="tabular-nums font-semibold">0.42</dd>
+                </div>
+                <div className="flex items-center gap-1">
+                  <dt className="flex items-center gap-0.5 text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
+                    <RobinhoodChainIcon className="h-2.5 w-2.5" />
+                    RH
+                  </dt>
+                  <dd className="tabular-nums font-semibold">0.15</dd>
+                </div>
+                <div className="flex items-center gap-1">
+                  <dt className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">USD</dt>
+                  <dd className="tabular-nums font-semibold">$1,428.50</dd>
+                </div>
+              </dl>
             </div>
-          )}
-        </section>
 
-        {/* Services & MCP */}
-        <section className="ui-overview-section">
-          <h2>MCP &amp; A2A Service Endpoints</h2>
-          {agent.services.map((srv) => (
-            <div key={srv.endpoint} className="ui-overview-row">
-              <span className="font-mono text-xs font-semibold uppercase text-foreground">
-                {srv.name} ({srv.version})
-              </span>
-              <span className="max-w-[240px] truncate font-mono text-xs text-muted-foreground">
-                {srv.endpoint}
-              </span>
+            <div className="px-5 py-4 space-y-5">
+              {/* Solana section */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <RuntimeImage src="/branding/solana/solanaLogoMark.svg" alt="" className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                  <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">
+                    Solana wallet
+                  </p>
+                  <Badge variant="outline" className="font-normal text-xs">Generated</Badge>
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-2.5 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="min-w-0 truncate font-mono text-xs text-foreground/90">
+                      {agent.agentWallet}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(agent.agentWallet);
+                        setSolCopied(true);
+                        showToast("Address copied to clipboard");
+                        setTimeout(() => setSolCopied(false), 1500);
+                      }}
+                      aria-label="Copy wallet address"
+                    >
+                      {solCopied ? (
+                        <span className="text-[10px] font-medium text-emerald-400">✓</span>
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={solSyncing}
+                    onClick={() => {
+                      setSolSyncing(true);
+                      setTimeout(() => {
+                        setSolSyncing(false);
+                        showToast("Solana balance refreshed", "success");
+                      }, 400);
+                    }}
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", solSyncing && "animate-spin")} aria-hidden />
+                    Refresh
+                  </Button>
+                  <Button size="sm" variant="secondary" asChild>
+                    <a
+                      href={`https://solscan.io/account/${agent.agentWallet}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                      Solscan
+                    </a>
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setSendModalOpen(true)}>
+                    <Send className="h-3.5 w-3.5" aria-hidden />
+                    Send
+                  </Button>
+                </div>
+
+                <div className="mt-3">
+                  <SolanaWalletFundsChart
+                    agentDbId={agent.id}
+                    walletPublicKey={agent.agentWallet}
+                    currentUsd={1428.5}
+                    solPrice={192.6}
+                    initialTransfers={demoTransfers}
+                  />
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {demoTransfers.map((tx, idx) => {
+                    const isOutbound = tx.fromPublicKey === agent.agentWallet;
+                    const amount = Number(tx.amountLamports) / 1_000_000_000;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex flex-col rounded-lg border border-border/30 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-1 text-xs">
+                            <span className="font-medium">{isOutbound ? "Sent" : "Received"}</span>
+                            <span className="tabular-nums font-mono text-foreground/90">
+                              {amount.toFixed(4)} {tx.token}
+                            </span>
+                          </p>
+                          <p className="text-muted-foreground mt-0.5 truncate font-mono text-[10px]">
+                            {isOutbound
+                              ? `To: ${shortenAddr(tx.toPublicKey)}`
+                              : `From: ${shortenAddr(tx.fromPublicKey)}`}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end sm:gap-0.5">
+                          <span className="text-[10px] font-medium text-green-400">Confirmed</span>
+                          <span className="text-muted-foreground text-[10px]">
+                            {new Date(tx.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* EVM wallet divider */}
+              <div className="border-t border-border/30" />
+
+              {/* EVM section */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <EthereumIcon className="h-4 w-4 shrink-0 opacity-90" />
+                  <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">
+                    EVM wallet
+                  </p>
+                  <Badge variant="outline" className="font-normal text-xs">Generated</Badge>
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-2.5 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="min-w-0 truncate font-mono text-xs text-foreground/90">
+                      {agent.owner}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(agent.owner);
+                        setEvmCopied(true);
+                        showToast("Address copied");
+                        setTimeout(() => setEvmCopied(false), 1500);
+                      }}
+                      aria-label="Copy EVM address"
+                    >
+                      {evmCopied ? (
+                        <span className="text-[10px] font-medium text-emerald-400">✓</span>
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 text-xs">
+                  <div className="rounded-lg border border-border/60 px-3 py-2">
+                    <p className="text-muted-foreground text-[10px] uppercase flex items-center gap-1">
+                      <EthereumIcon className="h-2.5 w-2.5" />
+                      Ethereum
+                    </p>
+                    <p className="font-semibold tabular-nums">0.42 ETH</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 px-3 py-2">
+                    <p className="text-muted-foreground text-[10px] uppercase flex items-center gap-1">
+                      <RobinhoodChainIcon className="h-2.5 w-2.5" />
+                      Robinhood Chain
+                    </p>
+                    <p className="font-semibold tabular-nums">0.15 ETH</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={evmSyncing}
+                    onClick={() => {
+                      setEvmSyncing(true);
+                      setTimeout(() => {
+                        setEvmSyncing(false);
+                        showToast("EVM balances synced", "success");
+                      }, 400);
+                    }}
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", evmSyncing && "animate-spin")} aria-hidden />
+                    Refresh
+                  </Button>
+                  <Button size="sm" variant="secondary" asChild>
+                    <a
+                      href={`https://etherscan.io/address/${agent.owner}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                      Etherscan
+                    </a>
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setSendModalOpen(true)}>
+                    <Send className="h-3.5 w-3.5" aria-hidden />
+                    Send
+                  </Button>
+                </div>
+
+                <div className="mt-3">
+                  <EvmWalletFundsChart currentUsd={1482} />
+                </div>
+
+                <p className="text-muted-foreground mt-2 text-[10px] leading-relaxed">
+                  Secure embedded wallet infrastructure provided by Privy.
+                </p>
+              </div>
             </div>
-          ))}
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Capabilities</span>
-            <span className="text-right text-xs">{agent.capabilities.slice(0, 3).join(" · ")}</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/agents/${agent.id}/services`}>Configure Endpoints</Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/agents/${agent.id}/chat`}>Test in Agent Chat</Link>
-            </Button>
-          </div>
-        </section>
 
-        {/* Quick Actions & Activity */}
-        <section className="ui-overview-section">
-          <h2>Recent Workspace Activity</h2>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">ERC-8004 Manifest</span>
-            <span className="text-xs text-emerald-400">Anchored &amp; Verified</span>
+          {/* LLM Balance Panel */}
+          <div className="ui-overview-panel rounded-xl p-0">
+            <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+              <Bot className="text-muted-foreground h-4 w-4 shrink-0" aria-hidden />
+              <h2 className="text-sm font-semibold">LLM Balance</h2>
+            </div>
+            <div className="space-y-4 px-5 py-4">
+              <div>
+                <p className="text-2xl font-semibold tabular-nums text-emerald-400">
+                  ${creditsUsd.toFixed(2)}
+                </p>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Available for agent compute
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={openCreditsDialog}>
+                  Add funds
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">
+                  Recent deposits
+                </p>
+                <ul className="max-h-36 divide-y divide-border/40 overflow-y-auto rounded-lg border border-border/50">
+                  <li className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-baseline gap-1.5">
+                        <span className="shrink-0 font-medium">Settled</span>
+                        <span className="truncate tabular-nums text-muted-foreground">$25.00</span>
+                      </div>
+                      <p className="text-muted-foreground truncate text-[10px] leading-tight">
+                        Today · 5xK9m2pL…
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-baseline gap-1.5">
+                        <span className="shrink-0 font-medium">Settled</span>
+                        <span className="truncate tabular-nums text-muted-foreground">$17.50</span>
+                      </div>
+                      <p className="text-muted-foreground truncate text-[10px] leading-tight">
+                        3 days ago · 8rTy4vBn…
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">GitHub Dev Proof</span>
-            <span className="text-xs">
-              {agent.socials.github ? "Connected · Push verified" : "Ready to connect"}
-            </span>
+
+          {/* Capabilities Panel */}
+          <div className="ui-overview-panel rounded-xl p-0">
+            <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+              <Settings className="text-muted-foreground h-4 w-4 shrink-0" aria-hidden />
+              <h2 className="text-sm font-semibold">Capabilities</h2>
+            </div>
+            <div className="px-5 py-4">
+              {agent.capabilities.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {agent.capabilities.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-md border border-border/60 bg-muted/10 px-2.5 py-1 text-xs text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <EmptyStatePanel
+                  title="No capabilities configured yet"
+                  description="Capabilities will appear here as this agent is configured."
+                />
+              )}
+            </div>
           </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">x402 Micropayments</span>
-            <span className="text-xs text-emerald-400">0.01 USDC / call active</span>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/agents/${agent.id}/register`}>On-Chain Register</Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/agents/${agent.id}/analytics`}>View Analytics</Link>
-            </Button>
-          </div>
-        </section>
+        </div>
       </div>
 
       {/* Edit Profile Dialog */}
@@ -480,6 +752,51 @@ export function DemoAgentOverview({
               </Button>
               <Button size="sm" onClick={handleSaveEdit}>
                 Save Profile
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Transfer Modal */}
+      <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send from {agent.name} Wallet</DialogTitle>
+            <DialogDescription>
+              Simulate an outbound transfer from your custodial agent wallet ({shortenAddr(agent.agentWallet, 6)}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Recipient Address</label>
+              <Input
+                value={sendToAddress}
+                onChange={(e) => setSendToAddress(e.target.value)}
+                placeholder="Solana or EVM recipient address"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Amount (SOL)</label>
+              <Input
+                value={sendAmountSol}
+                onChange={(e) => setSendAmountSol(e.target.value)}
+                placeholder="0.25"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setSendModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  showToast(`Sent ${sendAmountSol || "0.25"} SOL from ${agent.name}`, "success");
+                  setSendModalOpen(false);
+                }}
+              >
+                <Send className="mr-1.5 h-3.5 w-3.5" />
+                Confirm Send
               </Button>
             </div>
           </div>
@@ -531,7 +848,6 @@ export function DemoSectionView({
       ? resolveSectionFromPathname(window.location.pathname)
       : "overview");
 
-  // Interactive states for sections
   const [chatMessages, setChatMessages] = useState<
     Array<{ role: "user" | "agent"; text: string; time: string }>
   >([
@@ -594,28 +910,34 @@ export function DemoSectionView({
 
   if (resolvedSection === "chat") {
     return (
-      <div className="ui-overview space-y-4">
-        <div className="ui-overview-header">
-          <MessageSquare className="size-6 text-foreground" />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold">Agent Chat &amp; MCP Playground — {activeAgent.name}</h1>
-            <p className="text-xs text-muted-foreground">
-              Test prompts, inspect tool calls, and verify real-time responses against your agent persona.
-            </p>
+      <div className="ui-dashboard-overview mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 min-w-0">
+        <div className="ui-overview-summary overflow-hidden rounded-xl">
+          <div className="ui-overview-identity flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="size-5 text-muted-foreground" />
+              <div>
+                <h1 className="text-base font-semibold sm:text-lg">
+                  Agent Chat &amp; MCP Playground — {activeAgent.name}
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  Test prompts, inspect tool calls, and verify real-time responses against your agent persona.
+                </p>
+              </div>
+            </div>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="h-9 rounded-lg border border-border bg-card px-3 text-xs text-foreground"
+            >
+              <option value="claude-3-7-sonnet">Claude 3.7 Sonnet</option>
+              <option value="gpt-4.1">GPT-4.1</option>
+              <option value="deepseek-r1">DeepSeek R1</option>
+              <option value="llama-3.3-70b">Llama 3.3 70B</option>
+            </select>
           </div>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-card px-3 text-xs text-foreground"
-          >
-            <option value="claude-3-7-sonnet">Claude 3.7 Sonnet</option>
-            <option value="gpt-4.1">GPT-4.1</option>
-            <option value="deepseek-r1">DeepSeek R1</option>
-            <option value="llama-3.3-70b">Llama 3.3 70B</option>
-          </select>
         </div>
 
-        <div className="ui-overview-section flex min-h-[420px] flex-col justify-between">
+        <div className="ui-overview-panel flex min-h-[440px] flex-col justify-between rounded-xl p-5">
           <div className="space-y-3 overflow-y-auto pr-1">
             {chatMessages.map((msg, idx) => (
               <div
@@ -651,95 +973,111 @@ export function DemoSectionView({
   if (resolvedSection === "launchpad") {
     const tok = activeAgent.token;
     return (
-      <div className="ui-overview space-y-4">
-        <div className="ui-overview-header">
-          <Coins className="size-6 text-foreground" />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold">Token Launchpad &amp; Creator Fees — {activeAgent.name}</h1>
-            <p className="text-xs text-muted-foreground">
-              Launch an official agent token on Solana (Metaplex Genesis or Pump.fun) with 90% creator fee sharing.
-            </p>
+      <div className="ui-dashboard-overview mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 min-w-0">
+        <div className="ui-overview-summary overflow-hidden rounded-xl">
+          <div className="ui-overview-identity flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+            <div className="flex items-center gap-3">
+              <Coins className="size-5 text-muted-foreground" />
+              <div>
+                <h1 className="text-base font-semibold sm:text-lg">
+                  Token Launchpad &amp; Creator Fees — {activeAgent.name}
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  Launch an official agent token on Solana (Metaplex Genesis or Pump.fun) with 90% creator fee sharing.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/launch">Open Public Quick-Launch →</Link>
+            </Button>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/launch">Open Public Quick-Launch →</Link>
-          </Button>
         </div>
 
-        <div className="ui-overview-grid">
-          <section className="ui-overview-section">
-            <h2>Bound Agent Token</h2>
-            {tok ? (
-              <>
-                <div className="ui-overview-row">
-                  <span className="text-muted-foreground">Token Name &amp; Ticker</span>
-                  <span className="font-semibold">
-                    {tok.name} (${tok.symbol})
-                  </span>
-                </div>
-                <div className="ui-overview-row">
-                  <span className="text-muted-foreground">Launch Protocol</span>
-                  <span>{tok.venue} · Solana Mainnet</span>
-                </div>
-                <div className="ui-overview-row">
-                  <span className="text-muted-foreground">Mint Address</span>
-                  <CopyInlineButton text={tok.mint} label="Token mint" />
-                </div>
-                <div className="ui-overview-row">
-                  <span className="text-muted-foreground">Market Cap / 24h Volume</span>
-                  <span className="font-mono">
-                    ${(tok.marketCapUsd / 1_000_000).toFixed(2)}M · $
-                    {(tok.volume24hUsd / 1_000).toFixed(0)}K
-                  </span>
-                </div>
-                <div className="mt-3 flex gap-2">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="ui-overview-panel rounded-xl p-0">
+            <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+              <Coins className="text-muted-foreground h-4 w-4 shrink-0" />
+              <h2 className="text-sm font-semibold">Bound Agent Token</h2>
+            </div>
+            <div className="space-y-3 px-5 py-4 text-sm">
+              {tok ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+                    <span className="text-muted-foreground">Token Name &amp; Ticker</span>
+                    <span className="font-semibold">
+                      {tok.name} (${tok.symbol})
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+                    <span className="text-muted-foreground">Launch Protocol</span>
+                    <span>{tok.venue} · Solana Mainnet</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+                    <span className="text-muted-foreground">Mint Address</span>
+                    <CopyInlineButton text={tok.mint} label="Token mint" />
+                  </div>
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-muted-foreground">Market Cap / 24h Volume</span>
+                    <span className="font-mono">
+                      ${(tok.marketCapUsd / 1_000_000).toFixed(2)}M · $
+                      {(tok.volume24hUsd / 1_000).toFixed(0)}K
+                    </span>
+                  </div>
+                  <div className="pt-2">
+                    <Button size="sm" asChild>
+                      <Link href={`/tokens/${tok.mint}`}>
+                        View Live Token Page <ArrowUpRight className="ml-1 size-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3 py-2">
+                  <p className="text-sm text-muted-foreground">
+                    No token bound yet. Launch a token directly from the public launchpad or bind an existing mint.
+                  </p>
                   <Button size="sm" asChild>
-                    <Link href={`/tokens/${tok.mint}`}>
-                      View Live Token Page <ArrowUpRight className="ml-1 size-3.5" />
-                    </Link>
+                    <Link href="/launch">Launch Token Now</Link>
                   </Button>
                 </div>
-              </>
-            ) : (
-              <div className="space-y-3 py-2">
-                <p className="text-sm text-muted-foreground">
-                  No token bound yet. Launch a token directly from the public launchpad or bind an existing mint.
-                </p>
-                <Button size="sm" asChild>
-                  <Link href="/launch">Launch Token Now</Link>
+              )}
+            </div>
+          </div>
+
+          <div className="ui-overview-panel rounded-xl p-0">
+            <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+              <Wallet className="text-muted-foreground h-4 w-4 shrink-0" />
+              <h2 className="text-sm font-semibold">Creator Fee Vault (90% / 10% Split)</h2>
+            </div>
+            <div className="space-y-3 px-5 py-4 text-sm">
+              <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+                <span className="text-muted-foreground">Total Distributed</span>
+                <span className="font-mono font-semibold">2.45 SOL ($470.40)</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+                <span className="text-muted-foreground">Creator Share (90%)</span>
+                <span className="font-mono text-emerald-400">2.205 SOL</span>
+              </div>
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-muted-foreground">Claimable Now</span>
+                <span className="font-mono font-semibold">
+                  {claimedSol ? "0.000 SOL" : "0.640 SOL ($122.88)"}
+                </span>
+              </div>
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  disabled={claimedSol}
+                  onClick={() => {
+                    setClaimedSol(true);
+                    showToast("0.640 SOL creator fees claimed to agent wallet!", "success");
+                  }}
+                >
+                  {claimedSol ? "All Fees Claimed ✓" : "Claim 0.640 SOL to Wallet"}
                 </Button>
               </div>
-            )}
-          </section>
-
-          <section className="ui-overview-section">
-            <h2>Creator Fee Vault (90% / 10% Split)</h2>
-            <div className="ui-overview-row">
-              <span className="text-muted-foreground">Total Distributed</span>
-              <span className="font-mono font-semibold">2.45 SOL ($470.40)</span>
             </div>
-            <div className="ui-overview-row">
-              <span className="text-muted-foreground">Creator Share (90%)</span>
-              <span className="font-mono text-emerald-400">2.205 SOL</span>
-            </div>
-            <div className="ui-overview-row">
-              <span className="text-muted-foreground">Claimable Now</span>
-              <span className="font-mono font-semibold">
-                {claimedSol ? "0.000 SOL" : "0.640 SOL ($122.88)"}
-              </span>
-            </div>
-            <div className="mt-3">
-              <Button
-                size="sm"
-                disabled={claimedSol}
-                onClick={() => {
-                  setClaimedSol(true);
-                  showToast("0.640 SOL creator fees claimed to agent wallet!", "success");
-                }}
-              >
-                {claimedSol ? "All Fees Claimed ✓" : "Claim 0.640 SOL to Wallet"}
-              </Button>
-            </div>
-          </section>
+          </div>
         </div>
       </div>
     );
@@ -747,63 +1085,75 @@ export function DemoSectionView({
 
   if (resolvedSection === "schedule") {
     return (
-      <div className="ui-overview space-y-4">
-        <div className="ui-overview-header">
-          <CalendarClock className="size-6 text-foreground" />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold">Autonomous Schedule &amp; Cron Jobs — {activeAgent.name}</h1>
-            <p className="text-xs text-muted-foreground">
-              Configure recurring market scans, social broadcasts, and portfolio rebalances.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => {
-              const id = `job-${schedules.length + 1}`;
-              setSchedules((prev) => [
-                ...prev,
-                {
-                  id,
-                  name: "Hourly x402 Endpoint Health & Liquidity Check",
-                  cron: "0 * * * *",
-                  active: true,
-                  lastRun: "Scheduled",
-                },
-              ]);
-              showToast("New scheduled task added", "success");
-            }}
-          >
-            <Plus className="mr-1.5 size-3.5" />
-            Add Cron Task
-          </Button>
-        </div>
-
-        <div className="ui-overview-section space-y-2">
-          {schedules.map((job) => (
-            <div key={job.id} className="ui-overview-row">
+      <div className="ui-dashboard-overview mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 min-w-0">
+        <div className="ui-overview-summary overflow-hidden rounded-xl">
+          <div className="ui-overview-identity flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+            <div className="flex items-center gap-3">
+              <CalendarClock className="size-5 text-muted-foreground" />
               <div>
-                <p className="font-medium text-foreground">{job.name}</p>
-                <p className="font-mono text-xs text-muted-foreground">
-                  cron: {job.cron} · Last run: {job.lastRun}
+                <h1 className="text-base font-semibold sm:text-lg">
+                  Autonomous Schedule &amp; Cron Jobs — {activeAgent.name}
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  Configure recurring market scans, social broadcasts, and portfolio rebalances.
                 </p>
               </div>
-              <Button
-                variant={job.active ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setSchedules((prev) =>
-                    prev.map((j) => (j.id === job.id ? { ...j, active: !j.active } : j)),
-                  );
-                  showToast(
-                    `${job.name} ${job.active ? "paused" : "activated"}`,
-                    "info",
-                  );
-                }}
-              >
-                {job.active ? "Active ✓" : "Paused"}
-              </Button>
             </div>
-          ))}
+            <Button
+              size="sm"
+              onClick={() => {
+                const id = `job-${schedules.length + 1}`;
+                setSchedules((prev) => [
+                  ...prev,
+                  {
+                    id,
+                    name: "Hourly x402 Endpoint Health & Liquidity Check",
+                    cron: "0 * * * *",
+                    active: true,
+                    lastRun: "Scheduled",
+                  },
+                ]);
+                showToast("New scheduled task added", "success");
+              }}
+            >
+              <Plus className="mr-1.5 size-3.5" />
+              Add Cron Task
+            </Button>
+          </div>
+        </div>
+
+        <div className="ui-overview-panel rounded-xl p-0">
+          <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+            <CalendarClock className="text-muted-foreground h-4 w-4 shrink-0" />
+            <h2 className="text-sm font-semibold">Scheduled Tasks</h2>
+          </div>
+          <div className="divide-y divide-border/40 px-5 py-2">
+            {schedules.map((job) => (
+              <div key={job.id} className="flex items-center justify-between gap-3 py-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{job.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    cron: {job.cron} · Last run: {job.lastRun}
+                  </p>
+                </div>
+                <Button
+                  variant={job.active ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setSchedules((prev) =>
+                      prev.map((j) => (j.id === job.id ? { ...j, active: !j.active } : j)),
+                    );
+                    showToast(
+                      `${job.name} ${job.active ? "paused" : "activated"}`,
+                      "info",
+                    );
+                  }}
+                >
+                  {job.active ? "Active ✓" : "Paused"}
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -811,140 +1161,165 @@ export function DemoSectionView({
 
   if (resolvedSection === "memory") {
     return (
-      <div className="ui-overview space-y-4">
-        <div className="ui-overview-header">
-          <Brain className="size-6 text-foreground" />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold">Episodic &amp; Vector Memory — {activeAgent.name}</h1>
-            <p className="text-xs text-muted-foreground">
-              Inspect and pin persistent context facts shared across Chat, Scheduled Runs, and MCP tools.
-            </p>
+      <div className="ui-dashboard-overview mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 min-w-0">
+        <div className="ui-overview-summary overflow-hidden rounded-xl">
+          <div className="ui-overview-identity flex items-center gap-3 px-4 py-3.5 sm:px-5">
+            <Brain className="size-5 text-muted-foreground" />
+            <div>
+              <h1 className="text-base font-semibold sm:text-lg">
+                Episodic &amp; Vector Memory — {activeAgent.name}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Inspect and pin persistent context facts shared across Chat, Scheduled Runs, and MCP tools.
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="ui-overview-section space-y-3">
-          <div className="flex gap-2">
-            <Input
-              value={newMemory}
-              onChange={(e) => setNewMemory(e.target.value)}
-              placeholder="Add a persistent memory rule or guardrail for this agent…"
-            />
-            <Button
-              onClick={() => {
-                if (!newMemory.trim()) return;
-                setMemories((prev) => [newMemory.trim(), ...prev]);
-                setNewMemory("");
-                showToast("Memory vector indexed", "success");
-              }}
-            >
-              Pin Memory
-            </Button>
+        <div className="ui-overview-panel rounded-xl p-0">
+          <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+            <Brain className="text-muted-foreground h-4 w-4 shrink-0" />
+            <h2 className="text-sm font-semibold">Pinned Memory Vectors</h2>
           </div>
-          {memories.map((m, idx) => (
-            <div key={idx} className="ui-overview-row">
-              <span className="text-sm">{m}</span>
-              <span className="font-mono text-xs text-emerald-400">Pinned</span>
+          <div className="space-y-3 px-5 py-4">
+            <div className="flex gap-2">
+              <Input
+                value={newMemory}
+                onChange={(e) => setNewMemory(e.target.value)}
+                placeholder="Add a persistent memory rule or guardrail for this agent…"
+              />
+              <Button
+                onClick={() => {
+                  if (!newMemory.trim()) return;
+                  setMemories((prev) => [newMemory.trim(), ...prev]);
+                  setNewMemory("");
+                  showToast("Memory vector indexed", "success");
+                }}
+              >
+                Pin Memory
+              </Button>
             </div>
-          ))}
+            <div className="divide-y divide-border/40 rounded-lg border border-border/50">
+              {memories.map((m, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-sm">{m}</span>
+                  <span className="font-mono text-xs text-emerald-400">Pinned</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Generic rich interactive view for remaining sections (Wallet, Register, Trade, Inference, Services, GitHub, Monetize, Analytics, Rankings, Health, Verify, Credentials, Card, Settings)
   return (
-    <div className="ui-overview space-y-4">
-      <div className="ui-overview-header">
-        <Sparkles className="size-6 text-foreground" />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-bold capitalize">
-            {resolvedSection.replace("-", " ")} — {activeAgent.name}
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Live workspace module for {activeAgent.name} (#{activeAgent.agentId}) · Operator Credential AR-CRED-{activeAgent.agentId}
-          </p>
+    <div className="ui-dashboard-overview mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 min-w-0">
+      <div className="ui-overview-summary overflow-hidden rounded-xl">
+        <div className="ui-overview-identity flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+          <div className="flex items-center gap-3">
+            <Sparkles className="size-5 text-muted-foreground" />
+            <div>
+              <h1 className="text-base font-semibold capitalize sm:text-lg">
+                {resolvedSection.replace("-", " ")} — {activeAgent.name}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Live workspace module for {activeAgent.name} (#{activeAgent.agentId}) · Operator Credential AR-CRED-{activeAgent.agentId}
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/agents/${activeAgent.id}`}>Back to Overview</Link>
+          </Button>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/dashboard/agents/${activeAgent.id}`}>Back to Overview</Link>
-        </Button>
       </div>
 
-      <div className="ui-overview-grid">
-        <section className="ui-overview-section">
-          <h2>Module Telemetry &amp; Configuration</h2>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Active Agent</span>
-            <span className="font-semibold">{activeAgent.name}</span>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="ui-overview-panel rounded-xl p-0">
+          <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+            <Settings className="text-muted-foreground h-4 w-4 shrink-0" />
+            <h2 className="text-sm font-semibold">Module Telemetry &amp; Configuration</h2>
           </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Solana Custody Wallet</span>
-            <CopyInlineButton text={activeAgent.agentWallet} label="Solana wallet" />
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">EVM ERC-8004 Owner</span>
-            <CopyInlineButton text={activeAgent.owner} label="EVM owner" />
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">LLM Inference Credits</span>
-            <span className="font-mono font-semibold">${creditsUsd.toFixed(2)} USD</span>
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Developer Preview Access</span>
-            <button
-              type="button"
-              onClick={() => {
-                setIsDeveloper(!isDeveloper);
-                showToast(
-                  `Developer preview ${!isDeveloper ? "enabled" : "disabled"}`,
-                  "info",
-                );
-              }}
-              className="font-mono text-xs text-emerald-400 underline"
-            >
-              {isDeveloper ? "Enabled (All sections unlocked)" : "Disabled"}
-            </button>
-          </div>
-        </section>
-
-        <section className="ui-overview-section">
-          <h2>Quick Actions</h2>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">On-Chain ERC-8004 Manifest</span>
-            <span className="font-mono text-xs text-emerald-400">
-              ipfs://bafkreidemo{activeAgent.agentId}
-            </span>
-          </div>
-          <div className="ui-overview-row">
-            <span className="text-muted-foreground">Primary MCP Endpoint</span>
-            <span className="truncate font-mono text-xs text-muted-foreground">
-              {activeAgent.services[0]?.endpoint ?? "https://mcp.agentranking.io"}
-            </span>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={() => {
-                showToast(`Synced ${resolvedSection} state for ${activeAgent.name}`, "success");
-              }}
-            >
-              Sync On-Chain State
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => addCreditsUsd(25)}>
-              +$25 LLM Credits
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link
-                href={agentPublicPath({
-                  chainId: activeAgent.chainId,
-                  agentId: activeAgent.agentId,
-                  name: activeAgent.name,
-                })}
+          <div className="space-y-3 px-5 py-4 text-sm">
+            <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+              <span className="text-muted-foreground">Active Agent</span>
+              <span className="font-semibold">{activeAgent.name}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+              <span className="text-muted-foreground">Solana Custody Wallet</span>
+              <CopyInlineButton text={activeAgent.agentWallet} label="Solana wallet" />
+            </div>
+            <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+              <span className="text-muted-foreground">EVM ERC-8004 Owner</span>
+              <CopyInlineButton text={activeAgent.owner} label="EVM owner" />
+            </div>
+            <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+              <span className="text-muted-foreground">LLM Inference Credits</span>
+              <span className="font-mono font-semibold">${creditsUsd.toFixed(2)} USD</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Developer Preview Access</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeveloper(!isDeveloper);
+                  showToast(
+                    `Developer preview ${!isDeveloper ? "enabled" : "disabled"}`,
+                    "info",
+                  );
+                }}
+                className="font-mono text-xs text-emerald-400 underline"
               >
-                View Public Dossier <ArrowUpRight className="ml-1 size-3.5" />
-              </Link>
-            </Button>
+                {isDeveloper ? "Enabled (All sections unlocked)" : "Disabled"}
+              </button>
+            </div>
           </div>
-        </section>
+        </div>
+
+        <div className="ui-overview-panel rounded-xl p-0">
+          <div className="ui-overview-panel-header flex items-center gap-2 px-5 py-4">
+            <Sparkles className="text-muted-foreground h-4 w-4 shrink-0" />
+            <h2 className="text-sm font-semibold">Quick Actions</h2>
+          </div>
+          <div className="space-y-3 px-5 py-4 text-sm">
+            <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+              <span className="text-muted-foreground">On-Chain ERC-8004 Manifest</span>
+              <span className="font-mono text-xs text-emerald-400">
+                ipfs://bafkreidemo{activeAgent.agentId}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
+              <span className="text-muted-foreground">Primary MCP Endpoint</span>
+              <span className="truncate font-mono text-xs text-muted-foreground max-w-[200px]">
+                {activeAgent.services[0]?.endpoint ?? "https://mcp.agentranking.io"}
+              </span>
+            </div>
+            <div className="pt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  showToast(`Synced ${resolvedSection} state for ${activeAgent.name}`, "success");
+                }}
+              >
+                Sync On-Chain State
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => addCreditsUsd(25)}>
+                +$25 LLM Credits
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link
+                  href={agentPublicPath({
+                    chainId: activeAgent.chainId,
+                    agentId: activeAgent.agentId,
+                    name: activeAgent.name,
+                  })}
+                >
+                  View Public Dossier <ArrowUpRight className="ml-1 size-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

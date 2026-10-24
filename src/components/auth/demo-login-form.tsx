@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, Sparkles } from "lucide-react";
@@ -67,6 +67,13 @@ export function DemoLoginForm() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("800420");
   const [busyMethod, setBusyMethod] = useState<string | null>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("public-site", "light");
+    root.classList.add("agentranking-app", "dark");
+    root.style.colorScheme = "dark";
+  }, []);
 
   const completeSignIn = (method: string, displayName: string) => {
     setBusyMethod(method);

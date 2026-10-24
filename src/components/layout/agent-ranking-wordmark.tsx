@@ -2,7 +2,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 /** Brand logo from brandkit (served as /ar-mark.png). */
 const MARK_SRC = "/ar-mark.png";
-export type AgentRankingWordmarkSize = "compact" | "default" | "sidebar" | "nav";
+export type AgentRankingWordmarkSize = "compact" | "default" | "sidebar" | "nav" | "auth";
 const SIZE_STYLES: Record<
   AgentRankingWordmarkSize,
   { icon: string; text: string }
@@ -22,6 +22,10 @@ const SIZE_STYLES: Record<
   sidebar: {
     icon: "h-8 w-8 sm:h-9 sm:w-9",
     text: "text-base sm:text-lg",
+  },
+  auth: {
+    icon: "h-9 w-9 sm:h-10 sm:w-10",
+    text: "text-lg sm:text-xl",
   },
 };
 export function AgentRankingWordmark({
@@ -44,7 +48,7 @@ export function AgentRankingWordmark({
   readonly src?: string;
 }) {
   const markSrc = src ?? MARK_SRC;
-  const preset = SIZE_STYLES[size];
+  const preset = SIZE_STYLES[size] ?? SIZE_STYLES.default;
   if (variant === "icon") {
     return (
       <Image

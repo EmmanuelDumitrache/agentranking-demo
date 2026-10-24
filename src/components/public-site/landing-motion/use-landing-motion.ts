@@ -227,10 +227,6 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>): void {
         resetGlobe();
         return;
       }
-      if (isDesktop()) {
-        resetGlobe();
-        return;
-      }
       startGlobe();
     };
 
@@ -306,7 +302,7 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>): void {
         running = false;
         lockingScroll = false;
         tickRaf = 0;
-        if (!forward) resetGlobe();
+        if (!prefersReducedMotion()) startGlobe();
       };
 
       tickRaf = window.requestAnimationFrame(tick);

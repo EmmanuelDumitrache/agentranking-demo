@@ -44,7 +44,7 @@ export function absoluteUrl(path: string): string {
 }
 
 export function appAbsoluteUrl(path: string): string {
-  if (!path) return "/create";
+  if (!path) return "/dashboard";
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   return path.startsWith("/") ? path : `/${path}`;
 }
@@ -69,13 +69,11 @@ export function getDashboardSiteUrl(): string {
 }
 
 export function getDashboardHomeUrl(): string {
-  return "/create";
+  return "/dashboard";
 }
 
 export function dashboardAbsoluteUrl(path: string): string {
-  if (!path || path === "/dashboard" || path === "/dashboard/agents/new") {
-    return "/create";
-  }
+  if (!path) return "/dashboard";
   return path.startsWith("/") ? path : `/${path}`;
 }
 

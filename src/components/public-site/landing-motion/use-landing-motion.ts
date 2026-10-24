@@ -3,7 +3,7 @@
 import { useEffect, type RefObject } from "react";
 
 const DESIGN_WIDTH = 1685;
-const DESIGN_HEIGHT = 1073;
+const DESIGN_HEIGHT = 960;
 const DESKTOP_QUERY = "(min-width:1200px)";
 // Hero -> features timeline. Kept short: the wheel is captured while it runs,
 // so every extra millisecond here reads as lag when scrolling the page.
@@ -134,10 +134,13 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>): void {
     const layout = () => {
       if (isDesktop()) {
         const { width, height } = viewportSize();
-        const scale = Math.min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT);
+        const rawScale = Math.min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT);
+        const scale = Math.min(1, rawScale);
+        const layoutWidth = Math.min(1720, Math.max(DESIGN_WIDTH, Math.round(width / scale)));
+        const layoutHeight = Math.min(1020, Math.max(DESIGN_HEIGHT, Math.round(height / scale)));
         stage.style.setProperty("--scale", String(scale));
-        stage.style.setProperty("--layout-width", `${width / scale}px`);
-        stage.style.setProperty("--layout-height", `${height / scale}px`);
+        stage.style.setProperty("--layout-width", `${layoutWidth}px`);
+        stage.style.setProperty("--layout-height", `${layoutHeight}px`);
         return;
       }
       stage.style.removeProperty("--scale");

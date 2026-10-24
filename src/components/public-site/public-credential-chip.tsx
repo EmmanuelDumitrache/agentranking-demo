@@ -11,7 +11,7 @@ export function PublicCredentialChip({ credential, className }: Props) {
   if (!credential?.present) return null;
   return (
     <Link
-      href={credential.proofPath}
+      href={credential.proofPath || "/verified"}
       className={cn(
         "inline-flex max-w-full items-center rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide text-foreground/80 transition-colors hover:border-border hover:text-foreground",
         className,

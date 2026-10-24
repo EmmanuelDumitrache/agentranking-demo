@@ -10,9 +10,9 @@ export const publicSiteRoutes = {
   mcp: "/mcp",
   stake: "/stake",
   stakeDocs: "/docs/ar-token",
-  launchAgent: "/create",
-  launchApp: "/create",
-  launchAgentApp: "/create",
+  launchAgent: "/dashboard/agents/new",
+  launchApp: "/dashboard",
+  launchAgentApp: "/dashboard/agents/new",
   createAgent: "/create",
   launchToken: "/launch",
 } as const;
@@ -25,10 +25,8 @@ export function publicSiteAbsoluteUrl(path: string): string {
 
 export function buildPublicSiteNavLinks(): PublicNavItem[] {
   return [
-    { label: "Agents", href: publicSiteRoutes.agents },
     { label: "Tokens", href: publicSiteRoutes.tokens },
-    { label: "Create Agent", href: publicSiteRoutes.createAgent },
-    { label: "Launchpad", href: publicSiteRoutes.launchToken },
+    { label: "Agents", href: publicSiteRoutes.agents },
     { label: "World", href: publicSiteRoutes.world },
     { label: "MCP", href: publicSiteRoutes.mcp },
     { label: "Docs", href: publicSiteRoutes.docs },

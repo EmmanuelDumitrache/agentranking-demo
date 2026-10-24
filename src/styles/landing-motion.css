@@ -40,7 +40,7 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 
 .landing-motion {
   --design-width: 1685px;
-  --design-height: 1073px;
+  --design-height: 960px;
   --panel-bg: #020202;
   --pane-base: #262626;
   --pane-top: #313131;
@@ -316,11 +316,11 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 .landing-motion .showcase__board {
   position: absolute;
   left: calc(50% - 170px);
-  top: 269px;
+  top: 184px;
   display: flex;
   flex-direction: column;
   width: 340px;
-  min-height: 423px;
+  min-height: 410px;
   padding: 22px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 37px;
@@ -416,7 +416,7 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 .landing-motion .showcase__title {
   position: absolute;
   left: calc(50% - 154.5px);
-  top: 745px;
+  top: 642px;
   width: 286px;
   height: 72px;
   font-family: var(--lm-display);
@@ -431,7 +431,7 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 .landing-motion .showcase__sub {
   position: absolute;
   left: calc(50% - 149.5px);
-  top: 836.05px;
+  top: 728px;
   width: 275.42px;
   height: 46px;
   font-family: var(--lm-body);
@@ -444,7 +444,7 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 .landing-motion .hero__title {
   position: absolute;
   left: 39px;
-  top: 279px;
+  top: 196px;
   transform: translateY(1.8px);
   width: 578px;
   height: 324px;
@@ -463,7 +463,7 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 .landing-motion .hero__lede {
   position: absolute;
   left: 39px;
-  top: 640.06px;
+  top: 552px;
   width: 357.49px;
   height: 58px;
   font-family: var(--lm-body);
@@ -475,7 +475,7 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 .landing-motion .hero__stats {
   position: absolute;
   left: 39px;
-  top: 708px;
+  top: 624px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px 18px;
@@ -564,14 +564,14 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 .landing-motion .lifestyle__title {
   position: absolute;
   left: calc(50% - 292.5px);
-  top: 195px;
+  top: 118px;
   transform: translateY(1.54px);
   width: 585px;
-  height: 172px;
+  height: 156px;
   font-family: var(--lm-display);
   font-weight: 500;
-  font-size: 96px;
-  line-height: 86px;
+  font-size: 86px;
+  line-height: 78px;
   letter-spacing: -0.05em;
   text-transform: uppercase;
   text-align: center;
@@ -1082,6 +1082,8 @@ html.agentranking-app.public-site:has(.ui-main--landing-motion) body {
 
   .landing-motion .lcard {
     width: var(--feature-card-width);
+    transform: scale(0.92);
+    transform-origin: bottom center;
   }
 
   .landing-motion .lcard--security {

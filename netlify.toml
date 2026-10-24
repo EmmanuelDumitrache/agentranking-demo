@@ -16,3 +16,9 @@
   from = "/tokens/*"
   to = "/tokens/92eXvBFGBAXwgmPf6t6CUCNJH2xChsCJuWzaGPjyPUmP/index.html"
   status = 200
+
+[[redirects]]
+  from = "/dashboard/agents/*"
+  to = "/dashboard/index.html"
+  status = 200
+

@@ -6,3 +6,13 @@
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
   NEXT_PUBLIC_USE_MOCK_AGENTS = "true"
+
+[[redirects]]
+  from = "/agents/*"
+  to = "/agents/8453/101/aixbt-v2/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/tokens/*"
+  to = "/tokens/92eXvBFGBAXwgmPf6t6CUCNJH2xChsCJuWzaGPjyPUmP/index.html"
+  status = 200
